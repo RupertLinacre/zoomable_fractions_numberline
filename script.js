@@ -231,8 +231,8 @@ function renderNumberline() {
     axisG.selectAll("g.tick line").attr("y2", 6); // Standard tick line length
 
     const foreignObjectWidth = 70; // Width for MathML container
-    const foreignObjectHeight = 40; // Height for MathML container
-    const yMathJaxOffset = 10;    // Offset below the axis line for MathML
+    const foreignObjectHeight = 100; // Height for MathML container
+    const yMathJaxOffset = 0;    // Offset below the axis line for MathML (restored to 10)
 
 
     // Add fraction labels with hover effect for decimal
@@ -253,27 +253,39 @@ function renderNumberline() {
             const div = fo.append("xhtml:div")
                 .attr("class", "mathml-label-container fraction-label-hover")
                 .style("overflow", "visible")
+                .style("width", foreignObjectWidth + "px")
+                .style("height", foreignObjectHeight + "px")
+                .style("position", "relative")
                 .html(formatTickAsMathML(tickDenominator)(d));
-            // Attach hover events to the entire foreignObject
-            fo.on("mouseenter", function (event) {
-                d3.selectAll('.decimal-popup').remove();
-                div.classed("fraction-label-hover-active", true)
-                    .style("color", "#1976d2");
-                // Also color the MathJax SVG (if present)
-                div.select("svg").style("color", "#1976d2");
-                // Get the position of the tick
-                const parentTick = d3.select(fo.node().parentNode);
-                const tickX = +parentTick.attr("transform").match(/\(([-\d.]+),/)[1];
-                // Add a decimal label higher above the fraction, styled like the top axis
-                d3.select(fo.node().parentNode.parentNode) // axisG
-                    .append("text")
-                    .attr("class", "decimal-popup mathml-like-label")
-                    .attr("x", tickX)
-                    .attr("y", chartHeight / 2 - 70) // 70px above axis line
-                    .attr("text-anchor", "middle")
-                    .attr("fill", "#1976d2")
-                    .text(d3.format("~g")(d));
-            })
+            // Add a transparent overlay div to capture hover events exactly over the fraction area
+            const overlay = fo.append("xhtml:div")
+                .style("position", "absolute")
+                .style("top", "0")
+                .style("left", "0")
+                .style("width", foreignObjectWidth + "px")
+                .style("height", foreignObjectHeight + "px")
+                .style("cursor", "pointer")
+                .style("background", "rgba(0,0,0,0)")
+                .on("mouseenter", function (event) {
+                    d3.selectAll('.decimal-popup').remove();
+                    div.classed("fraction-label-hover-active", true)
+                        .style("color", "#1976d2");
+                    // Also color the MathJax SVG (if present)
+                    div.select("svg").style("color", "#1976d2");
+                    // Get the position of the tick
+                    const parentTick = d3.select(fo.node().parentNode);
+                    const tickX = +parentTick.attr("transform").match(/\(([-\d.]+),/)[1];
+                    // Add a decimal label higher above the fraction, styled like the top axis
+                    d3.select(fo.node().parentNode.parentNode) // axisG
+                        .append("text")
+                        .attr("class", "decimal-popup mathml-like-label")
+                        .attr("x", tickX)
+                        .attr("y", chartHeight / 2 - 70) // 70px above axis line
+                        .attr("text-anchor", "middle")
+                        .attr("fill", "#1976d2")
+                        .style("fill", "#1976d2")
+                        .text(d3.format("~g")(d));
+                })
                 .on("mouseleave", function (event) {
                     d3.selectAll('.decimal-popup').remove();
                     div.classed("fraction-label-hover-active", false)
