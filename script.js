@@ -65,7 +65,7 @@ let xScale = d3.scaleLinear();
 let xAxis = d3.axisBottom(xScale);
 
 const state = {
-    domain: [-1, 2], // Initial domain
+    domain: [-0.01, 1.01], // Initial domain
 };
 
 const ALLOWED_DENOMINATORS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 30, 40, 50, 60, 100];
@@ -171,6 +171,10 @@ function renderNumberline() {
         .tickValues(decimalTickValues)
         .tickFormat(d3.format("~g"));
     axisG2.call(xAxis2);
+    // Style the top axis tick labels to look like MathML (serif, bold, large, centered)
+    axisG2.selectAll("g.tick text")
+        .attr("class", "mathml-like-label")
+        .attr("dy", "-0.3em");
     axisG2.selectAll("g.tick line").attr("y2", -6); // Ticks below the axis line
     axisG2.select("path.domain").style("opacity", 1);
 

@@ -1,3 +1,12 @@
+/* MathML-like style for top axis decimal labels */
+/* MathML-like style for top axis decimal labels */
+.mathml-like-label {
+    font-family: 'STIX Two Math', 'Cambria Math', 'Times New Roman', Times, serif;
+
+    font-size: 1.7em;
+    fill: #222;
+    /* Only font and fill, no alignment-baseline or dy */
+}
 body, html {
     margin: 0;
     padding: 0;
