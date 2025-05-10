@@ -2,8 +2,14 @@
 function formatTickAsMathML(chosenDenominator) {
     return function (value) {
         const tolerance = 1e-9;
-        let num = value * chosenDenominator;
+        // Special case: denominator 1, just show as integer or decimal
+        if (chosenDenominator === 1) {
+            // If value is very close to an integer, round it
+            let displayVal = Math.abs(value - Math.round(value)) < tolerance ? Math.round(value) : value;
+            return `<math xmlns="http://www.w3.org/1998/Math/MathML"><mn>${displayVal}</mn></math>`;
+        }
 
+        let num = value * chosenDenominator;
         if (Math.abs(num - Math.round(num)) < tolerance * chosenDenominator) { // Scale tolerance with denominator
             num = Math.round(num);
         }
@@ -15,7 +21,7 @@ function formatTickAsMathML(chosenDenominator) {
         let mathmlString = "";
 
         if (Math.abs(value) < tolerance || (Math.abs(num) < tolerance && chosenDenominator > 0)) {
-            return `<math xmlns="http://www.w3.org/1998/Math/MathML"><mn>0</mn></math>`;
+            return `<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>0</mn></math>`;
         }
 
         const remainderCheck = absNum % den;
@@ -40,17 +46,18 @@ function formatTickAsMathML(chosenDenominator) {
         } else {
             mathmlString = `<mo>${sign}</mo><mfrac><mn>${Math.round(absNum)}</mn><mn>${den}</mn></mfrac>`;
         }
-        return `<math xmlns="http://www.w3.org/1998/Math/MathML">${mathmlString}</math>`;
+        return `<math xmlns=\"http://www.w3.org/1998/Math/MathML\">${mathmlString}</math>`;
     };
 }
 
-const margin = { top: 20, right: 60, bottom: 60, left: 30 }; // Increased right margin for edge label visibility
+const margin = { top: 120, right: 60, bottom: 60, left: 30 }; // Further increased top margin for top axis label visibility
 let svgWidth, svgHeight, chartWidth, chartHeight;
 
 const svg = d3.select("#chartContainer").append("svg");
 const chartG = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 const gridG = chartG.append("g").attr("class", "grid-lines");
 const axisG = chartG.append("g").attr("class", "axis");
+const axisG2 = chartG.append("g").attr("class", "axis axis-decimal"); // Second axis for decimals
 const eventRect = chartG.append("rect")
     .attr("class", "event-capture-rect");
 
@@ -71,7 +78,8 @@ function findBestDenominator(domain, allowedDenominators, minTicks, maxTicks) {
     const [d0, d1] = domain;
     if (d0 >= d1 || Math.abs(d1 - d0) < 1e-9) return null;
 
-    const sortedDenominators = [...allowedDenominators].sort((a, b) => a - b);
+    // Filter out denominator 1 if present (shouldn't be, but extra safety)
+    const sortedDenominators = [...allowedDenominators].filter(d => d > 1).sort((a, b) => a - b);
 
     for (const denom of sortedDenominators) {
         const firstNumerator = Math.ceil(d0 * denom - 1e-9); // Add tolerance for ceiling
@@ -141,17 +149,32 @@ function renderNumberline() {
     const paddedDomain = [state.domain[0], state.domain[1] + domainPadding];
     xScale.domain(paddedDomain).range([0, chartWidth]);
     axisG.attr("transform", `translate(0,${chartHeight / 2})`);
+    // Position the second axis 80px above the first
+    axisG2.attr("transform", `translate(0,${chartHeight / 2 - 80})`);
     eventRect.attr("width", chartWidth).attr("height", chartHeight);
 
     gridG.selectAll("*").remove();
     axisG.selectAll("g.tick").remove(); // Clear previous D3 ticks
+    axisG2.selectAll("g.tick").remove(); // Clear previous D3 ticks for second axis
 
     const bestDenom = findBestDenominator(state.domain, ALLOWED_DENOMINATORS, MIN_FRACTION_TICKS, MAX_FRACTION_TICKS);
     let currentTickValues;
     let useFractions = false;
     let tickDenominator = null;
 
-    if (bestDenom) {
+    // --- Render the second (top) axis with standard D3 decimal labels ---
+    let numTicks2 = Math.max(2, Math.floor(chartWidth / 70));
+    numTicks2 = Math.min(numTicks2, MAX_LABELS);
+    let decimalTickValues = xScale.ticks(numTicks2);
+    // Inverted axis: numbers above, ticks below
+    let xAxis2 = d3.axisTop(xScale)
+        .tickValues(decimalTickValues)
+        .tickFormat(d3.format("~g"));
+    axisG2.call(xAxis2);
+    axisG2.selectAll("g.tick line").attr("y2", -6); // Ticks below the axis line
+    axisG2.select("path.domain").style("opacity", 1);
+
+    if (bestDenom && bestDenom > 1) {
         const fractionTicks = generateFractionTickValues(state.domain, bestDenom);
         if (fractionTicks.length >= MIN_FRACTION_TICKS && fractionTicks.length <= MAX_FRACTION_TICKS) {
             useFractions = true;
@@ -160,10 +183,20 @@ function renderNumberline() {
         }
     }
     if (!useFractions) {
-        // Use D3's default ticks (whole numbers or nice steps), but always render as MathML
+        // Use only integer ticks for denominator 1
         let numTicks = Math.max(2, Math.floor(chartWidth / 70));
         numTicks = Math.min(numTicks, MAX_LABELS); // Enforce maximum number of labels
-        currentTickValues = xScale.ticks(numTicks);
+        // Calculate integer ticks within the domain
+        const domainMin = Math.ceil(state.domain[0]);
+        const domainMax = Math.floor(state.domain[1]);
+        currentTickValues = [];
+        for (let i = domainMin; i <= domainMax; i++) {
+            currentTickValues.push(i);
+        }
+        // If not enough ticks, fall back to D3 ticks (for very small domains)
+        if (currentTickValues.length < 2) {
+            currentTickValues = xScale.ticks(numTicks).filter(v => Math.abs(v - Math.round(v)) < 1e-9);
+        }
         tickDenominator = 1; // For whole numbers, denominator is 1
     }
 
