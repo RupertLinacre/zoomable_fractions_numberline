@@ -66,6 +66,7 @@ let xAxis = d3.axisBottom(xScale);
 
 const state = {
     domain: [-0.01, 1.01], // Initial domain
+    selectedDenominator: 'auto', // 'auto' or a number
 };
 
 const ALLOWED_DENOMINATORS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 30, 40, 50, 60, 100];
@@ -131,6 +132,7 @@ function generateFractionTickValues(domain, denominator) {
     return tickValues;
 }
 
+
 function renderNumberline() {
     const container = d3.select("#chartContainer");
     svgWidth = container.node().clientWidth;
@@ -157,7 +159,22 @@ function renderNumberline() {
     axisG.selectAll("g.tick").remove(); // Clear previous D3 ticks
     axisG2.selectAll("g.tick").remove(); // Clear previous D3 ticks for second axis
 
-    const bestDenom = findBestDenominator(state.domain, ALLOWED_DENOMINATORS, MIN_FRACTION_TICKS, MAX_FRACTION_TICKS);
+    // --- Denominator selection logic ---
+    let forcedDenominator = null;
+    if (state.selectedDenominator && state.selectedDenominator !== 'auto') {
+        forcedDenominator = parseInt(state.selectedDenominator, 10);
+        if (!ALLOWED_DENOMINATORS.includes(forcedDenominator)) {
+            forcedDenominator = null;
+        }
+    }
+
+    let bestDenom = null;
+    if (forcedDenominator) {
+        bestDenom = forcedDenominator;
+    } else {
+        bestDenom = findBestDenominator(state.domain, ALLOWED_DENOMINATORS, MIN_FRACTION_TICKS, MAX_FRACTION_TICKS);
+    }
+
     let currentTickValues;
     let useFractions = false;
     let tickDenominator = null;
@@ -180,7 +197,12 @@ function renderNumberline() {
 
     if (bestDenom && bestDenom > 1) {
         const fractionTicks = generateFractionTickValues(state.domain, bestDenom);
-        if (fractionTicks.length >= MIN_FRACTION_TICKS && fractionTicks.length <= MAX_FRACTION_TICKS) {
+        // If forced, always use fractions, even if too many/few ticks
+        if (forcedDenominator) {
+            useFractions = true;
+            currentTickValues = fractionTicks;
+            tickDenominator = bestDenom;
+        } else if (fractionTicks.length >= MIN_FRACTION_TICKS && fractionTicks.length <= MAX_FRACTION_TICKS) {
             useFractions = true;
             currentTickValues = fractionTicks;
             tickDenominator = bestDenom;
@@ -270,6 +292,15 @@ eventRect.on("wheel", function (event) {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+    // Set up denominator select event listener
+    const denomSelect = document.getElementById("denominatorSelect");
+    if (denomSelect) {
+        denomSelect.addEventListener("change", function () {
+            state.selectedDenominator = this.value;
+            renderNumberline();
+        });
+    }
+
     if (window.MathJax && MathJax.startup && MathJax.startup.promise) {
         MathJax.startup.promise.then(() => {
             console.log('MathJax is fully initialized and ready.');
