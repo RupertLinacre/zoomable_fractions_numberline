@@ -52,6 +52,7 @@ svg {
     /* stroke-dasharray: 2,2; */ /* Optional: make grid lines dashed */
 }
 
+
 .mathml-label-container {
     display: flex;
     align-items: center;    /* Vertically center MathJax content */
@@ -59,8 +60,21 @@ svg {
     width: 100%;
     height: 100%;
     font-size: 3em;        /* Base font size for MathJax, can be adjusted */
-
     overflow: hidden;      /* Hide overflow from MathJax rendering */
+    transition: color 0.15s;
+}
+
+.fraction-label-hover-active {
+    color: #1976d2 !important;
+}
+
+.decimal-popup {
+    pointer-events: none;
+    font-size: 1.7em;
+    font-family: 'STIX Two Math', 'Cambria Math', 'Times New Roman', Times, serif;
+    font-weight: bold;
+    fill: #1976d2;
+    /* mimic .mathml-like-label */
 }
 
 .event-capture-rect {

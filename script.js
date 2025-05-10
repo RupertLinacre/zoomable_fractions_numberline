@@ -234,17 +234,53 @@ function renderNumberline() {
     const foreignObjectHeight = 40; // Height for MathML container
     const yMathJaxOffset = 10;    // Offset below the axis line for MathML
 
+
+    // Add fraction labels with hover effect for decimal
+    // Add fraction labels with hover effect for decimal
     axisG.selectAll("g.tick")
-        .append("svg:foreignObject")
-        .attr("width", foreignObjectWidth)
-        .attr("height", foreignObjectHeight)
-        .attr("x", -foreignObjectWidth / 2)
-        .attr("y", yMathJaxOffset)
-        .style("overflow", "visible")
-        .append("xhtml:div")
-        .attr("class", "mathml-label-container")
-        .style("overflow", "visible")
-        .html(d => formatTickAsMathML(tickDenominator)(d));
+        .each(function (d) {
+            // Remove any previous label
+            d3.select(this).selectAll("foreignObject").remove();
+            // Add the foreignObject for the fraction label
+            const fo = d3.select(this)
+                .append("svg:foreignObject")
+                .attr("width", foreignObjectWidth)
+                .attr("height", foreignObjectHeight)
+                .attr("x", -foreignObjectWidth / 2)
+                .attr("y", yMathJaxOffset)
+                .style("overflow", "visible");
+            // Add the div inside the foreignObject
+            const div = fo.append("xhtml:div")
+                .attr("class", "mathml-label-container fraction-label-hover")
+                .style("overflow", "visible")
+                .html(formatTickAsMathML(tickDenominator)(d));
+            // Attach hover events to the entire foreignObject
+            fo.on("mouseenter", function (event) {
+                d3.selectAll('.decimal-popup').remove();
+                div.classed("fraction-label-hover-active", true)
+                    .style("color", "#1976d2");
+                // Also color the MathJax SVG (if present)
+                div.select("svg").style("color", "#1976d2");
+                // Get the position of the tick
+                const parentTick = d3.select(fo.node().parentNode);
+                const tickX = +parentTick.attr("transform").match(/\(([-\d.]+),/)[1];
+                // Add a decimal label higher above the fraction, styled like the top axis
+                d3.select(fo.node().parentNode.parentNode) // axisG
+                    .append("text")
+                    .attr("class", "decimal-popup mathml-like-label")
+                    .attr("x", tickX)
+                    .attr("y", chartHeight / 2 - 70) // 70px above axis line
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "#1976d2")
+                    .text(d3.format("~g")(d));
+            })
+                .on("mouseleave", function (event) {
+                    d3.selectAll('.decimal-popup').remove();
+                    div.classed("fraction-label-hover-active", false)
+                        .style("color", null);
+                    div.select("svg").style("color", null);
+                });
+        });
 
     if (window.MathJax && MathJax.typesetPromise) {
         MathJax.typesetClear && MathJax.typesetClear([axisG.node()]);
