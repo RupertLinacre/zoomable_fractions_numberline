@@ -62,8 +62,9 @@ const state = {
 };
 
 const ALLOWED_DENOMINATORS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 30, 40, 50, 60, 100];
-const MIN_FRACTION_TICKS = 10;
-const MAX_FRACTION_TICKS = 15;
+const MIN_FRACTION_TICKS = 7;
+const MAX_FRACTION_TICKS = 10;
+const MAX_LABELS = 10; // Maximum number of labels for whole numbers
 
 function findBestDenominator(domain, allowedDenominators, minTicks, maxTicks) {
     if (!domain) return null;
@@ -132,12 +133,13 @@ function renderNumberline() {
 
     if (chartWidth <= 0 || chartHeight <= 0) return; // Avoid rendering if no space
 
-    svg.attr("width", svgWidth).attr("height", svgHeight)
-        .style("overflow", "visible"); // Allow overflow for labels
+    svg.attr("width", svgWidth).attr("height", svgHeight);
     chartG.attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // Use the exact domain, so axis and ticks are at the true edges
-    xScale.domain(state.domain).range([0, chartWidth]);
+    // Add a small right padding to the domain to ensure the last tick (e.g. 2) is visible
+    const domainPadding = 0.03 * (state.domain[1] - state.domain[0]);
+    const paddedDomain = [state.domain[0], state.domain[1] + domainPadding];
+    xScale.domain(paddedDomain).range([0, chartWidth]);
     axisG.attr("transform", `translate(0,${chartHeight / 2})`);
     eventRect.attr("width", chartWidth).attr("height", chartHeight);
 
@@ -146,44 +148,50 @@ function renderNumberline() {
 
     const bestDenom = findBestDenominator(state.domain, ALLOWED_DENOMINATORS, MIN_FRACTION_TICKS, MAX_FRACTION_TICKS);
     let currentTickValues;
+    let useFractions = false;
+    let tickDenominator = null;
 
     if (bestDenom) {
-        currentTickValues = generateFractionTickValues(state.domain, bestDenom);
-        xAxis.tickValues(currentTickValues).tickFormat(() => ""); // MathJax will draw labels
-
-        axisG.call(xAxis);
-        axisG.selectAll("g.tick line").attr("y2", 6); // Standard tick line length
-
-        const foreignObjectWidth = 70; // Width for MathML container
-        const foreignObjectHeight = 40; // Height for MathML container
-        const yMathJaxOffset = 10;    // Offset below the axis line for MathML
-
-        axisG.selectAll("g.tick")
-            .append("svg:foreignObject")
-            .attr("width", foreignObjectWidth)
-            .attr("height", foreignObjectHeight)
-            .attr("x", -foreignObjectWidth / 2)
-            .attr("y", yMathJaxOffset)
-            .style("overflow", "visible")
-            .append("xhtml:div")
-            .attr("class", "mathml-label-container")
-            .style("overflow", "visible")
-            .html(d => formatTickAsMathML(bestDenom)(d));
-
-        if (window.MathJax && MathJax.typesetPromise) {
-            MathJax.typesetClear && MathJax.typesetClear([axisG.node()]);
-            MathJax.typesetPromise([axisG.node()]).catch(err => console.error("MathJax typesetting error:", err));
+        const fractionTicks = generateFractionTickValues(state.domain, bestDenom);
+        if (fractionTicks.length >= MIN_FRACTION_TICKS && fractionTicks.length <= MAX_FRACTION_TICKS) {
+            useFractions = true;
+            currentTickValues = fractionTicks;
+            tickDenominator = bestDenom;
         }
-        axisG.select("path.domain").style("opacity", 1);
-    } else {
-        // Fallback to default D3 decimal ticks
-        const numTicks = Math.max(2, Math.floor(chartWidth / 70));
-        currentTickValues = xScale.ticks(numTicks);
-        xAxis.tickValues(currentTickValues).tickFormat(d3.format("~g")); // Concise decimal format
-        axisG.call(xAxis);
-        axisG.selectAll("g.tick line").attr("y2", 6);
-        axisG.select("path.domain").style("opacity", 1);
     }
+    if (!useFractions) {
+        // Use D3's default ticks (whole numbers or nice steps), but always render as MathML
+        let numTicks = Math.max(2, Math.floor(chartWidth / 70));
+        numTicks = Math.min(numTicks, MAX_LABELS); // Enforce maximum number of labels
+        currentTickValues = xScale.ticks(numTicks);
+        tickDenominator = 1; // For whole numbers, denominator is 1
+    }
+
+    xAxis.tickValues(currentTickValues).tickFormat(() => ""); // Always use MathML, so D3 text is blank
+    axisG.call(xAxis);
+    axisG.selectAll("g.tick line").attr("y2", 6); // Standard tick line length
+
+    const foreignObjectWidth = 70; // Width for MathML container
+    const foreignObjectHeight = 40; // Height for MathML container
+    const yMathJaxOffset = 10;    // Offset below the axis line for MathML
+
+    axisG.selectAll("g.tick")
+        .append("svg:foreignObject")
+        .attr("width", foreignObjectWidth)
+        .attr("height", foreignObjectHeight)
+        .attr("x", -foreignObjectWidth / 2)
+        .attr("y", yMathJaxOffset)
+        .style("overflow", "visible")
+        .append("xhtml:div")
+        .attr("class", "mathml-label-container")
+        .style("overflow", "visible")
+        .html(d => formatTickAsMathML(tickDenominator)(d));
+
+    if (window.MathJax && MathJax.typesetPromise) {
+        MathJax.typesetClear && MathJax.typesetClear([axisG.node()]);
+        MathJax.typesetPromise([axisG.node()]).catch(err => console.error("MathJax typesetting error:", err));
+    }
+    axisG.select("path.domain").style("opacity", 1);
 
     // Draw grid lines
     if (currentTickValues && currentTickValues.length > 0) {
