@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Zoomable Fraction Numberline</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/d3@7"></script>
+    <script>
+        window.MathJax = {
+            svg: { fontCache: 'global' }
+            // MathJax startup and initial render will be handled by new_script.js
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-svg.js"></script>
+</head>
+
+<body>
+    <h1>Zoomable Fraction Numberline</h1>
+    <p>Use the mouse wheel to zoom in/out on the numberline.</p>
+    <div id="chartContainer"></div>
+    <script src="script.js"></script>
+</body>
+
+</html>
