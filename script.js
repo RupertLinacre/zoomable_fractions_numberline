@@ -291,11 +291,11 @@ function renderNumberline() {
 
                     // --- NEW: Define Y positions ---
 
-                    // Raise the popup higher: estimate the text height as about 1.7em (from .decimal-popup font-size)
-                    // 1em ≈ 16px, so 1.7em ≈ 27px. Let's use 55px (25px + 30px) for a clear gap.
-                    const yOffsetForPopupAboveTopAxis = 55; // px (was 25)
+                    // Adjust popup height: 1.7em ≈ 27px, so 1/5 of that is about 5px
+                    // So, reduce the offset by 5px (from 55px to 50px)
+                    const yOffsetForPopupAboveTopAxis = 50; // px (was 55)
                     // Top axis line is at -80 relative to axisG
-                    const yPopupRelativeToAxisG = -80 - yOffsetForPopupAboveTopAxis; // e.g., -135
+                    const yPopupRelativeToAxisG = -80 - yOffsetForPopupAboveTopAxis; // e.g., -130
                     // Absolute Y for grid line highlight start (in chartG coordinates)
                     const yGridLineHighlightStartAbs = (chartHeight / 2) + yPopupRelativeToAxisG;
 
@@ -328,9 +328,9 @@ function renderNumberline() {
                     if (!targetGridLine.empty()) {
                         targetGridLine
                             .classed("highlighted", true)
-                            .attr("stroke", "#1976d2") // Blue color (same as text)
-                            .attr("stroke-width", 2)
-                            .attr("y1", yGridLineHighlightStartAbs)
+                            // .attr("stroke", "#1976d2") // Blue color (same as text)
+                            .attr("stroke-width", 1)
+                            .attr("y1", yGridLineHighlightStartAbs + 10)
                             .attr("y2", chartHeight / 2);
                     }
                 })
