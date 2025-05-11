@@ -259,41 +259,95 @@ function renderNumberline() {
                 .attr("y", yMathJaxOffset)
                 .style("overflow", "visible")
                 .style("cursor", "pointer")
-                .style("background", "rgba(255,255,0,0.4)") // Always show yellow for debug
-                .on("mouseenter", function (event) {
-                    d3.selectAll('.decimal-popup').remove();
-                    const div = d3.select(this).select(".mathml-label-container");
-                    div.classed("fraction-label-hover-active", true)
-                        .style("color", "#1976d2");
-                    div.select("svg").style("color", "#1976d2");
-                    // Get the position of the tick
-                    const parentTick = d3.select(this.parentNode);
-                    const tickX = +parentTick.attr("transform").match(/\(([-\d.]+),/)[1];
-                    d3.select(this.parentNode.parentNode) // axisG
-                        .append("text")
-                        .attr("class", "decimal-popup mathml-like-label")
-                        .attr("x", tickX)
-                        .attr("y", chartHeight / 2 - 70)
-                        .attr("text-anchor", "middle")
-                        .attr("fill", "#1976d2")
-                        .style("fill", "#1976d2")
-                        .text(d3.format("~g")(d));
-                })
-                .on("mouseleave", function (event) {
-                    d3.selectAll('.decimal-popup').remove();
-                    const div = d3.select(this).select(".mathml-label-container");
-                    div.classed("fraction-label-hover-active", false)
-                        .style("color", null);
-                    div.select("svg").style("color", null);
-                });
+                .style("background", "rgba(255,255,0,0.4)"); // Always show yellow for debug
+
             // Add the div inside the foreignObject
-            fo.append("xhtml:div")
+            const div = fo.append("xhtml:div")
                 .attr("class", "mathml-label-container fraction-label-hover")
                 .style("overflow", "visible")
                 .style("width", foreignObjectWidth + "px")
                 .style("height", foreignObjectHeight + "px")
                 .style("position", "relative")
                 .html(formatTickAsMathML(tickDenominator)(d));
+
+            // Add a transparent overlay div to capture hover events exactly over the fraction area
+            const overlay = fo.append("xhtml:div")
+                .style("position", "absolute")
+                .style("top", "0")
+                .style("left", "0")
+                .style("width", foreignObjectWidth + "px")
+                .style("height", foreignObjectHeight + "px")
+                .style("cursor", "pointer")
+                .style("background", "rgba(0,0,0,0)")
+                .on("mouseenter", function (event) {
+                    d3.selectAll('.decimal-popup').remove();
+                    div.classed("fraction-label-hover-active", true)
+                        .style("color", "#1976d2");
+                    // Also color the MathJax SVG (if present)
+                    div.select("svg").style("color", "#1976d2");
+                    // Get the position of the tick
+                    const parentTick = d3.select(fo.node().parentNode);
+                    const tickX = +parentTick.attr("transform").match(/\(([-\d.]+),/)[1];
+
+                    // --- NEW: Define Y positions ---
+
+                    // Raise the popup higher: estimate the text height as about 1.7em (from .decimal-popup font-size)
+                    // 1em ≈ 16px, so 1.7em ≈ 27px. Let's use 55px (25px + 30px) for a clear gap.
+                    const yOffsetForPopupAboveTopAxis = 55; // px (was 25)
+                    // Top axis line is at -80 relative to axisG
+                    const yPopupRelativeToAxisG = -80 - yOffsetForPopupAboveTopAxis; // e.g., -135
+                    // Absolute Y for grid line highlight start (in chartG coordinates)
+                    const yGridLineHighlightStartAbs = (chartHeight / 2) + yPopupRelativeToAxisG;
+
+                    // --- MODIFIED: Create and position the decimal popup ---
+                    d3.select(fo.node().parentNode.parentNode) // axisG
+                        .append("text")
+                        .attr("class", "decimal-popup mathml-like-label")
+                        .attr("x", tickX)
+                        .attr("y", yPopupRelativeToAxisG)
+                        .attr("text-anchor", "middle")
+                        .attr("fill", "#1976d2")
+                        .style("fill", "#1976d2")
+                        .style("font-weight", "bold")
+                        .text(d3.format("~g")(d));
+
+                    // --- NEW: Highlight the corresponding grid line ---
+                    const hoveredValue = d;
+                    // Reset any other grid line that might have been highlighted previously
+                    gridG.selectAll("line.grid-line.highlighted")
+                        .classed("highlighted", false)
+                        .attr("stroke", "#e0e0e0")
+                        .attr("stroke-width", 1)
+                        .attr("y1", -chartHeight / 2)
+                        .attr("y2", chartHeight / 2);
+
+                    // Highlight the current grid line
+                    const targetGridLine = gridG.selectAll("line.grid-line")
+                        .filter(gridData => Math.abs(gridData - hoveredValue) < 1e-9);
+
+                    if (!targetGridLine.empty()) {
+                        targetGridLine
+                            .classed("highlighted", true)
+                            .attr("stroke", "#1976d2") // Blue color (same as text)
+                            .attr("stroke-width", 2)
+                            .attr("y1", yGridLineHighlightStartAbs)
+                            .attr("y2", chartHeight / 2);
+                    }
+                })
+                .on("mouseleave", function (event) {
+                    d3.selectAll('.decimal-popup').remove();
+                    div.classed("fraction-label-hover-active", false)
+                        .style("color", null);
+                    div.select("svg").style("color", null);
+
+                    // --- NEW: Reset the highlighted grid line ---
+                    gridG.selectAll("line.grid-line.highlighted")
+                        .classed("highlighted", false)
+                        .attr("stroke", "#e0e0e0")
+                        .attr("stroke-width", 1)
+                        .attr("y1", -chartHeight / 2)
+                        .attr("y2", chartHeight / 2);
+                });
         });
 
     if (window.MathJax && MathJax.typesetPromise) {
