@@ -1,18 +1,15 @@
 /* MathML-like style for top axis decimal labels */
-/* MathML-like style for top axis decimal labels */
 .mathml-like-label {
     font-family: 'STIX Two Math', 'Cambria Math', 'Times New Roman', Times, serif;
-
     font-size: 1.7em;
     fill: #222;
-    /* Only font and fill, no alignment-baseline or dy */
 }
 body, html {
     margin: 0;
     padding: 0;
     font-family: sans-serif;
     height: 100%;
-    overflow: hidden; /* Prevent body scroll if SVG causes overflow */
+    overflow: hidden;
 }
 
 h1, p {
@@ -22,8 +19,8 @@ h1, p {
 
 #chartContainer {
     width: 100%;
-    height: 270px; /* Further increased height for the chart container */
-    padding: 10px 20px; /* Top/bottom padding, Left/right padding */
+    height: 270px;
+    padding: 10px 20px;
     box-sizing: border-box;
 }
 
@@ -36,31 +33,29 @@ svg {
 .axis path,
 .axis line {
     fill: none;
-    stroke: #333;       /* Color of axis line and D3 tick marks */
+    stroke: #333;
     stroke-width: 1px;
     shape-rendering: crispEdges;
 }
 
-.axis text { /* Style for D3's default text labels (used in decimal fallback) */
-    font-size: 3em;
+.axis text {
+    font-size: 3em; /* This applies to D3's default text, MathML labels are styled separately */
     fill: #555;
 }
 
 .grid-line {
-    stroke: #e0e0e0;     /* Light grey for grid lines */
+    stroke: #e0e0e0;
     stroke-width: 1px;
-    /* stroke-dasharray: 2,2; */ /* Optional: make grid lines dashed */
 }
-
 
 .mathml-label-container {
     display: flex;
-    align-items: center;    /* Vertically center MathJax content */
-    justify-content: center; /* Horizontally center MathJax content */
+    align-items: center;
+    justify-content: center;
     width: 100%;
     height: 100%;
-    font-size: 3em;        /* Base font size for MathJax, can be adjusted */
-    overflow: hidden;      /* Hide overflow from MathJax rendering */
+    font-size: 3em;
+    overflow: hidden;
     transition: color 0.15s;
 }
 
@@ -74,10 +69,24 @@ svg {
     font-family: 'STIX Two Math', 'Cambria Math', 'Times New Roman', Times, serif;
     font-weight: bold;
     fill: #1976d2;
-    /* mimic .mathml-like-label */
 }
 
 .event-capture-rect {
     fill: none;
     pointer-events: all;
+}
+
+/* Styles for Cuisenaire-like rods */
+.fraction-rod-rect {
+    pointer-events: none;
+    /* stroke: none; */ /* Stroke removed as per requirement */
+}
+
+.fraction-rod-text {
+    pointer-events: none;
+    font-family: 'STIX Two Math', 'Cambria Math', 'Times New Roman', Times, serif; /* Consistent font */
+    font-size: 18px;        /* Increased by 50% */
+    font-weight: bold;      /* Make text bold for better visibility on pale bg */
+    text-anchor: middle;
+    dominant-baseline: middle;
 }
