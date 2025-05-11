@@ -153,7 +153,16 @@ function renderNumberline() {
     axisG.attr("transform", `translate(0,${chartHeight / 2})`);
     // Position the second axis 80px above the first
     axisG2.attr("transform", `translate(0,${chartHeight / 2 - 80})`);
-    eventRect.attr("width", chartWidth).attr("height", chartHeight);
+    // Calculate the vertical position and height for the event capture rectangle so it covers from the bottom axis line to the top axis line
+    const axisY = chartHeight / 2;
+    const axisY2 = chartHeight / 2 - 80; // 80px above the first axis
+    const eventRectY = axisY2;
+    const eventRectHeight = axisY - axisY2;
+    eventRect
+        .attr("x", 0)
+        .attr("y", eventRectY)
+        .attr("width", chartWidth)
+        .attr("height", eventRectHeight);
 
     gridG.selectAll("*").remove();
     axisG.selectAll("g.tick").remove(); // Clear previous D3 ticks
@@ -248,39 +257,23 @@ function renderNumberline() {
                 .attr("height", foreignObjectHeight)
                 .attr("x", -foreignObjectWidth / 2)
                 .attr("y", yMathJaxOffset)
-                .style("overflow", "visible");
-            // Add the div inside the foreignObject
-            const div = fo.append("xhtml:div")
-                .attr("class", "mathml-label-container fraction-label-hover")
                 .style("overflow", "visible")
-                .style("width", foreignObjectWidth + "px")
-                .style("height", foreignObjectHeight + "px")
-                .style("position", "relative")
-                .html(formatTickAsMathML(tickDenominator)(d));
-            // Add a transparent overlay div to capture hover events exactly over the fraction area
-            const overlay = fo.append("xhtml:div")
-                .style("position", "absolute")
-                .style("top", "0")
-                .style("left", "0")
-                .style("width", foreignObjectWidth + "px")
-                .style("height", foreignObjectHeight + "px")
                 .style("cursor", "pointer")
-                .style("background", "rgba(0,0,0,0)")
+                .style("background", "rgba(255,255,0,0.4)") // Always show yellow for debug
                 .on("mouseenter", function (event) {
                     d3.selectAll('.decimal-popup').remove();
+                    const div = d3.select(this).select(".mathml-label-container");
                     div.classed("fraction-label-hover-active", true)
                         .style("color", "#1976d2");
-                    // Also color the MathJax SVG (if present)
                     div.select("svg").style("color", "#1976d2");
                     // Get the position of the tick
-                    const parentTick = d3.select(fo.node().parentNode);
+                    const parentTick = d3.select(this.parentNode);
                     const tickX = +parentTick.attr("transform").match(/\(([-\d.]+),/)[1];
-                    // Add a decimal label higher above the fraction, styled like the top axis
-                    d3.select(fo.node().parentNode.parentNode) // axisG
+                    d3.select(this.parentNode.parentNode) // axisG
                         .append("text")
                         .attr("class", "decimal-popup mathml-like-label")
                         .attr("x", tickX)
-                        .attr("y", chartHeight / 2 - 70) // 70px above axis line
+                        .attr("y", chartHeight / 2 - 70)
                         .attr("text-anchor", "middle")
                         .attr("fill", "#1976d2")
                         .style("fill", "#1976d2")
@@ -288,10 +281,19 @@ function renderNumberline() {
                 })
                 .on("mouseleave", function (event) {
                     d3.selectAll('.decimal-popup').remove();
+                    const div = d3.select(this).select(".mathml-label-container");
                     div.classed("fraction-label-hover-active", false)
                         .style("color", null);
                     div.select("svg").style("color", null);
                 });
+            // Add the div inside the foreignObject
+            fo.append("xhtml:div")
+                .attr("class", "mathml-label-container fraction-label-hover")
+                .style("overflow", "visible")
+                .style("width", foreignObjectWidth + "px")
+                .style("height", foreignObjectHeight + "px")
+                .style("position", "relative")
+                .html(formatTickAsMathML(tickDenominator)(d));
         });
 
     if (window.MathJax && MathJax.typesetPromise) {
