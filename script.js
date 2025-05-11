@@ -1,50 +1,79 @@
+function gcd(a, b) {
+    a = Math.abs(a);
+    b = Math.abs(b);
+    if (b === 0) return a;
+    return gcd(b, a % b);
+}
+
 // --- MathML fraction label helper ---
 function formatTickAsMathML(chosenDenominator) {
     return function (value) {
         const tolerance = 1e-9;
+
         // Special case: denominator 1, just show as integer or decimal
         if (chosenDenominator === 1) {
-            // If value is very close to an integer, round it
             let displayVal = Math.abs(value - Math.round(value)) < tolerance ? Math.round(value) : value;
             return `<math xmlns="http://www.w3.org/1998/Math/MathML"><mn>${displayVal}</mn></math>`;
         }
 
-        let num = value * chosenDenominator;
-        if (Math.abs(num - Math.round(num)) < tolerance * chosenDenominator) { // Scale tolerance with denominator
-            num = Math.round(num);
+        let numForCalc = value * chosenDenominator;
+        // Round numForCalc if it's very close to an integer to handle floating point inaccuracies
+        // Scale tolerance with denominator for this check
+        if (Math.abs(numForCalc - Math.round(numForCalc)) < tolerance * chosenDenominator) {
+            numForCalc = Math.round(numForCalc);
         }
 
-        const absNum = Math.abs(num);
-        const den = chosenDenominator;
-        const sign = num < 0 ? '-' : '';
+        const sign = numForCalc < 0 ? '-' : '';
+        const absNumForCalc = Math.abs(numForCalc);
+        const denForCalc = chosenDenominator; // This is the original chosen denominator
 
         let mathmlString = "";
 
-        if (Math.abs(value) < tolerance || (Math.abs(num) < tolerance && chosenDenominator > 0)) {
+        // Handle zero value
+        if (Math.abs(value) < tolerance || (Math.abs(numForCalc) < tolerance && denForCalc > 0)) {
             return `<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>0</mn></math>`;
         }
 
-        const remainderCheck = absNum % den;
-        if (Math.abs(remainderCheck) < tolerance * den || Math.abs(den - remainderCheck) < tolerance * den && remainderCheck !== 0) {
-            const wholeVal = Math.round(num / den);
+        // Check if it's effectively a whole number (e.g., 4/4, 6/2)
+        // The remainder check needs to be robust for floating point comparisons.
+        const remainderCheck = absNumForCalc % denForCalc;
+        if (Math.abs(remainderCheck) < tolerance * denForCalc || // absNum is multiple of den
+            (Math.abs(denForCalc - remainderCheck) < tolerance * denForCalc && remainderCheck !== 0) // absNum is just under a multiple
+        ) {
+            const wholeVal = Math.round(numForCalc / denForCalc); // Calculate whole value from original num/den
             mathmlString = `<mn>${wholeVal}</mn>`;
-        } else if (absNum > den) {
-            const wholePart = Math.trunc(num / den);
-            const remainderNum = Math.round(absNum % den);
-            if (remainderNum === 0) { // Should be caught by above check ideally
+        } else if (absNumForCalc > denForCalc) { // Mixed number (e.g., 3/2, -5/3)
+            const wholePart = Math.trunc(numForCalc / denForCalc); // Integer part, can be negative
+            let remainderNum = Math.round(absNumForCalc % denForCalc); // Numerator of the fractional part
+            let remainderDen = denForCalc; // Denominator of the fractional part
+
+            if (remainderNum === 0) { // Should ideally be caught by the whole number check above
                 mathmlString = `<mn>${wholePart}</mn>`;
             } else {
-                if (wholePart === 0 && sign) { // e.g. -0.5 becomes -1/2 rather than 0 -1/2
-                    mathmlString = `<mo>${sign}</mo><mfrac><mn>${remainderNum}</mn><mn>${den}</mn></mfrac>`;
-                } else if (wholePart === 0 && !sign) { // e.g. 0.5 becomes 1/2
-                    mathmlString = `<mfrac><mn>${remainderNum}</mn><mn>${den}</mn></mfrac>`;
+                if (state.simplifyFractions) {
+                    const common = gcd(remainderNum, remainderDen);
+                    if (common > 1) {
+                        remainderNum /= common;
+                        remainderDen /= common;
+                    }
                 }
-                else {
-                    mathmlString = `<mo>${sign}</mo><mn>${Math.abs(wholePart)}</mn><mfrac><mn>${remainderNum}</mn><mn>${den}</mn></mfrac>`;
+                // For mixed numbers like -A B/C, sign is determined by numForCalc,
+                // wholePart will be negative (e.g. -1 for -1.5).
+                // We display as: <mo>-</mo> <mn>A</mn> <mfrac>B C</mfrac>
+                mathmlString = `<mo>${sign}</mo><mn>${Math.abs(wholePart)}</mn><mfrac><mn>${remainderNum}</mn><mn>${remainderDen}</mn></mfrac>`;
+            }
+        } else { // Proper fraction (e.g., 1/2, -2/3)
+            let displayNum = Math.round(absNumForCalc);
+            let displayDen = denForCalc;
+
+            if (state.simplifyFractions) {
+                const common = gcd(displayNum, displayDen);
+                if (common > 1) {
+                    displayNum /= common;
+                    displayDen /= common;
                 }
             }
-        } else {
-            mathmlString = `<mo>${sign}</mo><mfrac><mn>${Math.round(absNum)}</mn><mn>${den}</mn></mfrac>`;
+            mathmlString = `<mo>${sign}</mo><mfrac><mn>${displayNum}</mn><mn>${displayDen}</mn></mfrac>`;
         }
         return `<math xmlns=\"http://www.w3.org/1998/Math/MathML\">${mathmlString}</math>`;
     };
@@ -404,6 +433,19 @@ document.addEventListener("DOMContentLoaded", () => {
             renderNumberline();
         });
     }
+
+    // --- NEW: Set up simplify fractions toggle event listener ---
+    const simplifyToggle = document.getElementById("simplifyFractionsToggle");
+    if (simplifyToggle) {
+        // Ensure checkbox visual state matches the initial JavaScript state
+        simplifyToggle.checked = state.simplifyFractions;
+
+        simplifyToggle.addEventListener("change", function () {
+            state.simplifyFractions = this.checked;
+            renderNumberline(); // Re-render the number line with the new setting
+        });
+    }
+
 
     if (window.MathJax && MathJax.startup && MathJax.startup.promise) {
         MathJax.startup.promise.then(() => {
