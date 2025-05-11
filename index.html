@@ -18,33 +18,51 @@
 <body>
     <h1>Zoomable Fraction Numberline</h1>
     <p>Use the mouse wheel to zoom in/out on the numberline.</p>
-    <label for="denominatorSelect">Fraction denominator: </label>
-    <select id="denominatorSelect">
-        <option value="auto" selected>Auto</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="5">5</option>
-        <option value="6">6</option>
-        <option value="7">7</option>
-        <option value="8">8</option>
-        <option value="9">9</option>
-        <option value="10">10</option>
-        <option value="12">12</option>
-        <option value="14">14</option>
-        <option value="16">16</option>
-        <option value="18">18</option>
-        <option value="20">20</option>
-        <option value="25">25</option>
-        <option value="30">30</option>
-        <option value="40">40</option>
-        <option value="50">50</option>
-        <option value="60">60</option>
-        <option value="100">100</option>
-    </select>
+    <p><em style="background-color: yellow;">Hover over the fractions to show their decimal
+            equivalent.</em></p>
+
+    <div>
+        <label for="denominatorSelect">Fraction denominator: </label>
+        <select id="denominatorSelect">
+            <option value="auto" selected>Auto</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+            <option value="12">12</option>
+            <option value="14">14</option>
+            <option value="16">16</option>
+            <option value="18">18</option>
+            <option value="20">20</option>
+            <option value="25">25</option>
+            <option value="30">30</option>
+            <option value="40">40</option>
+            <option value="50">50</option>
+            <option value="60">60</option>
+            <option value="100">100</option>
+        </select>
+    </div>
     <div>
         <label for="simplifyFractionsToggle">Simplify Fractions:</label>
         <input type="checkbox" id="simplifyFractionsToggle" checked>
+    </div>
+    <div>
+        <label for="decimalTickDensitySelect">Decimal Tick Density: </label>
+        <select id="decimalTickDensitySelect">
+            <option value="0.05">1/20x</option>
+            <option value="0.1">1/10x</option>
+            <option value="0.2">1/5x</option>
+            <option value="0.25">1/4x</option>
+            <option value="0.5">1/2x</option>
+            <option value="auto" selected>Auto</option>
+            <option value="2">2x</option>
+
+        </select>
     </div>
 
     <div id="chartContainer"></div>

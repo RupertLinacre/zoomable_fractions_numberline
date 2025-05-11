@@ -89,12 +89,13 @@ const state = {
     domain: [-0.01, 1.01],
     selectedDenominator: 'auto',
     simplifyFractions: true,
+    decimalTickMultiplier: 'auto', // New state for decimal tick density
 };
 
 const ALLOWED_DENOMINATORS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 30, 40, 50, 60, 100];
 const MIN_FRACTION_TICKS = 7;
 const MAX_FRACTION_TICKS = 10;
-const MAX_LABELS = 10;
+const MAX_LABELS = 10; // Max labels for 'auto' decimal ticks
 
 function findBestDenominator(domain, allowedDenominators, minTicks, maxTicks) {
     if (!domain) return null;
@@ -186,6 +187,41 @@ function renderNumberline() {
     axisG.selectAll("g.tick").remove();
     axisG2.selectAll("g.tick").remove();
 
+    // --- Top Decimal Axis (axisG2) ---
+    let baseDecimalTicks = Math.max(2, Math.floor(chartWidth / 70));
+    let maxAllowedDecimalTicks = MAX_LABELS;
+    let targetDecimalTicks;
+
+    if (state.decimalTickMultiplier === 'auto') {
+        targetDecimalTicks = Math.min(baseDecimalTicks, maxAllowedDecimalTicks);
+    } else {
+        const multiplier = parseFloat(state.decimalTickMultiplier);
+        if (!isNaN(multiplier)) {
+            targetDecimalTicks = Math.round(baseDecimalTicks * multiplier);
+            if (multiplier > 1) {
+                // Allow more ticks if user explicitly asks, up to a scaled limit
+                maxAllowedDecimalTicks = MAX_LABELS * multiplier * 1.5;
+            }
+            targetDecimalTicks = Math.min(targetDecimalTicks, maxAllowedDecimalTicks);
+        } else {
+            targetDecimalTicks = Math.min(baseDecimalTicks, maxAllowedDecimalTicks); // Fallback
+        }
+    }
+    targetDecimalTicks = Math.max(1, targetDecimalTicks); // Ensure at least 1 tick
+
+    let decimalTickValues = xScale.ticks(targetDecimalTicks);
+    let xAxis2 = d3.axisTop(xScale)
+        .tickValues(decimalTickValues)
+        .tickFormat(d3.format("~g"));
+    axisG2.call(xAxis2);
+    axisG2.selectAll("g.tick text")
+        .attr("class", "mathml-like-label")
+        .attr("dy", "-0.3em");
+    axisG2.selectAll("g.tick line").attr("y2", -6);
+    axisG2.select("path.domain").style("opacity", 1);
+
+
+    // --- Bottom Fraction Axis (axisG) ---
     let forcedDenominator = null;
     if (state.selectedDenominator && state.selectedDenominator !== 'auto') {
         forcedDenominator = parseInt(state.selectedDenominator, 10);
@@ -205,19 +241,6 @@ function renderNumberline() {
     let useFractions = false;
     let tickDenominator = null;
 
-    let numTicks2 = Math.max(2, Math.floor(chartWidth / 70));
-    numTicks2 = Math.min(numTicks2, MAX_LABELS);
-    let decimalTickValues = xScale.ticks(numTicks2);
-    let xAxis2 = d3.axisTop(xScale)
-        .tickValues(decimalTickValues)
-        .tickFormat(d3.format("~g"));
-    axisG2.call(xAxis2);
-    axisG2.selectAll("g.tick text")
-        .attr("class", "mathml-like-label")
-        .attr("dy", "-0.3em");
-    axisG2.selectAll("g.tick line").attr("y2", -6);
-    axisG2.select("path.domain").style("opacity", 1);
-
     if (bestDenom && bestDenom > 1) {
         const fractionTicks = generateFractionTickValues(state.domain, bestDenom);
         if (forcedDenominator) {
@@ -231,7 +254,7 @@ function renderNumberline() {
         }
     }
     if (!useFractions) {
-        let numTicks = Math.max(2, Math.floor(chartWidth / 70));
+        let numTicks = Math.max(2, Math.floor(chartWidth / 70)); // Use a base calculation for integer ticks too
         numTicks = Math.min(numTicks, MAX_LABELS);
         const domainMin = Math.ceil(state.domain[0]);
         const domainMax = Math.floor(state.domain[1]);
@@ -239,8 +262,11 @@ function renderNumberline() {
         for (let i = domainMin; i <= domainMax; i++) {
             currentTickValues.push(i);
         }
-        if (currentTickValues.length < 2) {
+        if (currentTickValues.length < 2 || currentTickValues.length > numTicks * 1.5) { // If too few whole numbers or too many, use d3.ticks
             currentTickValues = xScale.ticks(numTicks).filter(v => Math.abs(v - Math.round(v)) < 1e-9);
+            if (currentTickValues.length === 0 && (state.domain[1] - state.domain[0]) < 2) { // If no integers in small domain
+                currentTickValues = xScale.ticks(2).filter(v => Math.abs(v - Math.round(v)) < 1e-9); // Try to get at least one integer
+            }
         }
         tickDenominator = 1;
     }
@@ -250,8 +276,8 @@ function renderNumberline() {
     axisG.selectAll("g.tick line").attr("y2", 6);
 
     const foreignObjectWidth = 70;
-    const foreignObjectHeight = 100;
-    const yMathJaxOffset = 0;
+    const foreignObjectHeight = 100; // Keep ample height for 3em MathJax
+    const yMathJaxOffset = 10;      // Position top of FO 10px below axis line (tick line is 6px long)
 
     axisG.selectAll("g.tick")
         .each(function (d) {
@@ -261,7 +287,7 @@ function renderNumberline() {
                 .attr("width", foreignObjectWidth)
                 .attr("height", foreignObjectHeight)
                 .attr("x", -foreignObjectWidth / 2)
-                .attr("y", yMathJaxOffset)
+                .attr("y", yMathJaxOffset) // Apply the offset
                 .style("overflow", "visible")
                 .style("cursor", "pointer");
 
@@ -285,21 +311,21 @@ function renderNumberline() {
                     d3.selectAll('.decimal-popup').remove();
                     div.classed("fraction-label-hover-active", true)
                         .style("color", "#1976d2");
-                    div.select("svg").style("color", "#1976d2");
+                    div.select("svg").style("color", "#1976d2"); // Target MathJax SVG color
                     const parentTick = d3.select(fo.node().parentNode);
                     const tickX = +parentTick.attr("transform").match(/\(([-\d.]+),/)[1];
                     const yOffsetForPopupAboveTopAxis = 50;
-                    const yPopupRelativeToAxisG = -80 - yOffsetForPopupAboveTopAxis;
+                    const yPopupRelativeToAxisG = -80 - yOffsetForPopupAboveTopAxis; // -80 is axisG2's offset from axisG
                     const yGridLineHighlightStartAbs = (chartHeight / 2) + yPopupRelativeToAxisG;
 
-                    d3.select(fo.node().parentNode.parentNode)
+                    d3.select(fo.node().parentNode.parentNode) // axisG
                         .append("text")
                         .attr("class", "decimal-popup mathml-like-label")
                         .attr("x", tickX)
                         .attr("y", yPopupRelativeToAxisG)
                         .attr("text-anchor", "middle")
                         .attr("fill", "#1976d2")
-                        .style("fill", "#1976d2")
+                        .style("fill", "#1976d2") // Ensure style override if CSS is more specific
                         .style("font-weight", "bold")
                         .text(d3.format("~g")(d));
 
@@ -317,16 +343,17 @@ function renderNumberline() {
                     if (!targetGridLine.empty()) {
                         targetGridLine
                             .classed("highlighted", true)
-                            .attr("stroke-width", 1)
-                            .attr("y1", yGridLineHighlightStartAbs + 10)
-                            .attr("y2", chartHeight / 2);
+                            .attr("stroke-width", 1) // Keep same width, color change implies highlight
+                            //.attr("stroke", "#1976d2") // Optional: change grid line color on hover
+                            .attr("y1", yGridLineHighlightStartAbs + 10) // Start highlight from below popup
+                            .attr("y2", chartHeight / 2); // End at fraction axis
                     }
                 })
                 .on("mouseleave", function (event) {
                     d3.selectAll('.decimal-popup').remove();
                     div.classed("fraction-label-hover-active", false)
                         .style("color", null);
-                    div.select("svg").style("color", null);
+                    div.select("svg").style("color", null); // Reset MathJax SVG color
 
                     gridG.selectAll("line.grid-line.highlighted")
                         .classed("highlighted", false)
@@ -362,13 +389,12 @@ function renderNumberline() {
         const firstInteger = Math.floor(domainStart);
         const lastInteger = Math.ceil(domainEndPadded);
 
-        // **FIX HERE**: Define explicit domain for color scale for consistent mapping
         const colorScaleDomain = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         const colorScale = d3.scaleOrdinal().domain(colorScaleDomain).range(d3.schemeCategory10);
 
         for (let i = firstInteger; i < lastInteger; i++) {
-            const colorIndex = Math.abs(i) % 10; // Index (0-9) for the color scale
-            const baseColor = colorScale(colorIndex); // Ensures persistent color for this integer interval's index
+            const colorIndex = Math.abs(i) % 10;
+            const baseColor = colorScale(colorIndex);
             const rodFillColor = d3.color(baseColor).copy({ opacity: 0.3 }).toString();
             const rodTextColor = d3.color(baseColor).darker(1.5).toString();
 
@@ -403,7 +429,7 @@ function renderNumberline() {
             .attr("class", "fraction-rod-rect")
             .attr("x", d => xScale(d.xStartValue))
             .attr("y", ROD_Y)
-            .attr("width", d => Math.max(0, xScale(d.xEndValue) - xScale(d.xStartValue) - 1)) // -1 for a tiny visual gap, if desired
+            .attr("width", d => Math.max(0, xScale(d.xEndValue) - xScale(d.xStartValue) - 1))
             .attr("height", ROD_HEIGHT)
             .attr("fill", d => d.fillColor);
 
@@ -414,7 +440,7 @@ function renderNumberline() {
             .text(d => {
                 const rodPixelWidth = xScale(d.xEndValue) - xScale(d.xStartValue);
                 const textLength = d.label.toString().length;
-                const minWidthForText = textLength * 12 + 6;
+                const minWidthForText = textLength * 12 + 6; // Estimate min width
                 return rodPixelWidth > minWidthForText ? d.label : "";
             })
             .attr("fill", d => d.textColor);
@@ -461,6 +487,15 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    const decimalTickDensitySelect = document.getElementById("decimalTickDensitySelect");
+    if (decimalTickDensitySelect) {
+        decimalTickDensitySelect.value = state.decimalTickMultiplier; // Set initial value from state
+        decimalTickDensitySelect.addEventListener("change", function () {
+            state.decimalTickMultiplier = this.value;
+            renderNumberline();
+        });
+    }
+
     if (window.MathJax && MathJax.startup && MathJax.startup.promise) {
         MathJax.startup.promise.then(() => {
             console.log('MathJax is fully initialized and ready.');
@@ -468,20 +503,26 @@ document.addEventListener("DOMContentLoaded", () => {
             window.addEventListener("resize", renderNumberline);
         }).catch(err => {
             console.error("MathJax startup promise failed:", err);
+            // Still attempt to render and setup resize listener
             renderNumberline();
             window.addEventListener("resize", renderNumberline);
         });
     } else {
-        console.warn("MathJax not available or startup.promise not found. Will try rendering.");
-        setTimeout(() => {
+        console.warn("MathJax not available or startup.promise not found. Will try rendering and set up listener.");
+        // Fallback for environments where MathJax might load differently or fail
+        setTimeout(() => { // Delay to give MathJax more time if it's slow
             if (window.MathJax && MathJax.startup && MathJax.startup.promise) {
                 MathJax.startup.promise.then(() => {
                     console.log('MathJax (delayed) is fully initialized and ready.');
                     renderNumberline();
                     window.addEventListener("resize", renderNumberline);
+                }).catch(err => {
+                    console.error("MathJax (delayed) startup promise failed:", err);
+                    renderNumberline();
+                    window.addEventListener("resize", renderNumberline);
                 });
             } else {
-                console.error("MathJax still not ready after delay.");
+                console.error("MathJax still not ready after delay. Rendering without MathJax or with potential issues.");
                 renderNumberline();
                 window.addEventListener("resize", renderNumberline);
             }
