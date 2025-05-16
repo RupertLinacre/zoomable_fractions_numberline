@@ -469,6 +469,34 @@ eventRect.on("wheel", function (event) {
     renderNumberline();
 });
 
+// --- Panning logic ---
+let isPanning = false;
+let panStartX = null;
+let panStartDomain = null;
+
+eventRect.on("mousedown", function (event) {
+    if (event.button !== 0) return; // Only left mouse button
+    isPanning = true;
+    panStartX = d3.pointer(event, this)[0];
+    panStartDomain = [...state.domain];
+    d3.select(window).on("mousemove.pan", mousemovePan).on("mouseup.pan", mouseupPan);
+});
+
+function mousemovePan(event) {
+    if (!isPanning) return;
+    const mouseX = d3.pointer(event, eventRect.node())[0];
+    const dx = mouseX - panStartX;
+    const domainSpan = panStartDomain[1] - panStartDomain[0];
+    const dxDomain = xScale.invert(panStartX) - xScale.invert(panStartX + dx);
+    state.domain = [panStartDomain[0] + dxDomain, panStartDomain[1] + dxDomain];
+    renderNumberline();
+}
+
+function mouseupPan(event) {
+    isPanning = false;
+    d3.select(window).on("mousemove.pan", null).on("mouseup.pan", null);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const denomSelect = document.getElementById("denominatorSelect");
     if (denomSelect) {
